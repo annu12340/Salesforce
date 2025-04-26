@@ -31,32 +31,6 @@ app.use(express.json());
 app.use(cors());
 const port = 3000;
 
-
-app.get("/voices", async (req, res) => {
-  res.send(await voice.getVoices(elevenLabsApiKey));
-});
-
-const execCommand = (command) => {
-  return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) reject(error);
-      resolve(stdout);
-    });
-  });
-};
-
-const lipSyncMessage = async (message) => {
-  const time = new Date().getTime();
-  console.log(`Starting conversion for message ${message}`);
-  await execCommand(
-    `sox audios/message_${message}.mp3 audios/message_${message}.wav`
-  );
-  console.log(`Conversion done in ${new Date().getTime() - time}ms`);
-  await execCommand(
-    `/Users/annu/Downloads/Rhubarb-Lip-Sync-1.14.0-macOS/rhubarb -f json -o audios/message_${message}.json audios/message_${message}.wav -r phonetic`
-  );
-};
-
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
 
@@ -76,6 +50,27 @@ const retryOperation = async (operation, maxRetries = MAX_RETRIES) => {
     }
   }
   throw lastError;
+};
+
+const lipSyncMessage = async (message) => {
+  const time = new Date().getTime();
+  console.log(`Starting conversion for message ${message}`);
+  await execCommand(
+    `sox audios/message_${message}.mp3 audios/message_${message}.wav`
+  );
+  console.log(`Conversion done in ${new Date().getTime() - time}ms`);
+  await execCommand(
+    `/Users/annu/Downloads/Rhubarb-Lip-Sync-1.14.0-macOS/rhubarb -f json -o audios/message_${message}.json audios/message_${message}.wav -r phonetic`
+  );
+};
+
+const execCommand = (command) => {
+  return new Promise((resolve, reject) => {
+    exec(command, (error, stdout, stderr) => {
+      if (error) reject(error);
+      resolve(stdout);
+    });
+  });
 };
 
 app.post("/chat", async (req, res) => {
@@ -190,6 +185,25 @@ app.post("/chat", async (req, res) => {
         },
       ];
     }
+    // Use hardcoded messages for now
+    // let messages = [
+    //   {
+    //     text: "Okay, I understand the requirements.",
+    //     facialExpression: "smile",
+    //     animation: "Talking_0"
+    //   },
+    //   {
+    //     text: "I will always reply with a JSON array containing up to three messages, each with text, facialExpression, and animation properties.",
+    //     facialExpression: "default",
+    //     animation: "Talking_1"
+    //   },
+    //   {
+    //     text: "Let me know what you need!",
+    //     facialExpression: "smile",
+    //     animation: "Idle"
+    //   }
+    // ];
+    // console.log("Parsed messages:", messages);
 
     // Process each message for audio and lip sync
     for (let i = 0; i < messages.length; i++) {
