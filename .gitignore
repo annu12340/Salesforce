@@ -1,0 +1,7 @@
+customer-app/virtual-assistant-backend/node_modules
+customer-app/virtual-assistant-backend/audios
+customer-app/virtual-assistant-backend/audios/*
+
+customer-app/assistant-frontend/node_modules
+customer-app/assistant-frontend/node_modules/*
+
