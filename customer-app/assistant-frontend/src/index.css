@@ -1,20 +1,68 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   --leva-sizes-rootWidth: 340px;
+  --primary-color: #3b82f6;
+  --secondary-color: #7c3aed;
+  --text-color: #111827;
+  --background-start: #0f3f5e;
+  --background-end: #301d6c;
+}
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
 #root {
   width: 100vw;
   height: 100vh;
+  overflow: hidden;
 }
 
 body {
   margin: 0;
-  background-image: linear-gradient(19deg, #0f3f5e 0%, #301d6c 100%);
+  background-image: linear-gradient(19deg, var(--background-start) 0%, var(--background-end) 100%);
+  color: #fff;
+}
+
+/* Enhanced UI Elements */
+button {
+  transition: all 0.2s ease-in-out;
+}
+
+button:hover {
+  transform: translateY(-2px);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+/* Animation Keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Apply animations */
+.fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.slide-up {
+  animation: slideUp 0.5s ease-out;
 }
 
 

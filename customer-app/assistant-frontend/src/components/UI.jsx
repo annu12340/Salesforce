@@ -1,5 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useChat } from "../hooks/useChat";
+import { Mic, MicOff } from "lucide-react"; // Icon library
+import { Button } from "./Button";
 
 export const UI = ({ hidden, ...props }) => {
   const { chat, loading, message } = useChat();
@@ -8,46 +10,31 @@ export const UI = ({ hidden, ...props }) => {
   const recognitionRef = useRef(null);
 
   useEffect(() => {
-    // Initialize speech recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
     if (!SpeechRecognition) {
       console.error("Speech Recognition not supported in this browser");
       return;
     }
-    
+
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
-    
-    // Set properties
+
     recognition.continuous = true;
     recognition.lang = "en-US";
-    
-    // Event listeners
-    recognition.onstart = () => {
-      console.log("Speech recognition started");
-      setRecording(true);
-    };
-    
+
+    recognition.onstart = () => setRecording(true);
     recognition.onresult = (event) => {
       const transcript = Array.from(event.results)
-        .map(result => result[0].transcript)
+        .map((result) => result[0].transcript)
         .join("");
-      
       setTranscript(transcript);
     };
-    
     recognition.onerror = (event) => {
       console.error("Speech recognition error:", event.error);
       setRecording(false);
     };
-    
-    recognition.onend = () => {
-      console.log("Speech recognition ended");
-      setRecording(false);
-    };
-    
-    // Cleanup function
+    recognition.onend = () => setRecording(false);
+
     return () => {
       if (recognitionRef.current) {
         recognitionRef.current.stop();
@@ -60,16 +47,14 @@ export const UI = ({ hidden, ...props }) => {
       console.error("Speech Recognition not initialized");
       return;
     }
-    
+
     if (recording) {
-      // Stop recording and send the message
       recognitionRef.current.stop();
       if (transcript.trim() && !loading && !message) {
         chat(transcript);
         setTranscript("");
       }
     } else {
-      // Start recording
       setTranscript("");
       recognitionRef.current.start();
     }
@@ -81,24 +66,27 @@ export const UI = ({ hidden, ...props }) => {
 
   return (
     <>
-      <div className="fixed top-0 left-0 right-0 bottom-0 z-10 flex justify-between p-4 flex-col pointer-events-none">
-        <div className="flex items-center gap-2 pointer-events-auto max-w-screen-sm w-full mx-auto">
-          <div className="w-full p-4 rounded-md bg-opacity-50 bg-white backdrop-blur-md flex items-center">
-            <span className="text-gray-800 italic">
-              {transcript || (recording ? "Listening..." : "Click to speak...")}
-            </span>
+      <div className="fixed inset-0 z-10 flex justify-between p-6 flex-col pointer-events-none">
+        <div className="flex items-center gap-6 pointer-events-auto max-w-2xl w-full mx-auto slide-up">
+
+          {/* Text Display */}
+          <div className="flex-1 min-h-[80px] p-6 rounded-2xl bg-white/70 backdrop-blur-lg shadow-lg border border-white/30 transition-all">
+            <p className={`text-gray-900 text-lg font-medium tracking-wide leading-relaxed ${recording ? "animate-pulse" : ""}`}>
+              {transcript || (recording ? "Listening..." : "Tap the mic to start speaking...")}
+            </p>
           </div>
-          <button
+
+          {/* Microphone Button */}
+          <Button
             disabled={loading || message}
             onClick={toggleRecording}
-            className={`${
-              recording ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'
-            } text-white p-4 px-10 font-semibold uppercase rounded-md ${
-              loading || message ? "cursor-not-allowed opacity-30" : ""
-            }`}
+            variant={recording ? "danger" : "primary"}
+            size="icon-lg"
+            className={recording ? "animate-pulse shadow-2xl" : "shadow-2xl"}
           >
-            {recording ? "Stop" : "Speak"}
-          </button>
+            {recording ? <MicOff size={32} className="text-white" /> : <Mic size={32} className="text-white" />}
+          </Button>
+
         </div>
       </div>
     </>
