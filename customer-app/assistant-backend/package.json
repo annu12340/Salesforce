@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon test.js --ext js"
+    "dev": "nodemon index.js --ext js"
   },
   "dependencies": {
     "@google/genai": "^0.10.0",

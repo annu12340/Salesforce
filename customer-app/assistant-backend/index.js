@@ -57,6 +57,27 @@ const lipSyncMessage = async (message) => {
   );
 };
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const retryOperation = async (operation, maxRetries = MAX_RETRIES) => {
+  let lastError;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await operation();
+    } catch (error) {
+      console.error(`Attempt ${i + 1} failed:`, error.message);
+      lastError = error;
+      if (i < maxRetries - 1) {
+        await sleep(RETRY_DELAY * (i + 1)); // Exponential backoff
+      }
+    }
+  }
+  throw lastError;
+};
+
 app.post("/chat", async (req, res) => {
   const userMessage = req.body.message;
   if (!userMessage) {
@@ -106,12 +127,20 @@ app.post("/chat", async (req, res) => {
   try {
     // Create or get existing session with AgentForce
     const agentId = process.env.SALESFORCE_AGENT_ID;
-    const session = await agentForceClient.createSession(agentId);
+    const session = await retryOperation(() => agentForceClient.createSession(agentId));
     console.log("AgentForce session created:", session);
 
-    // Send message to AgentForce
-    const agentResponse = await agentForceClient.sendMessage(session.sessionId, userMessage);
+    // Send message to AgentForce with retry
+    const agentResponse = await retryOperation(() => 
+      agentForceClient.sendMessage(session.sessionId, userMessage)
+    );
     console.log("AgentForce response:", agentResponse);
+
+    // Extract the message from AgentForce response
+    let agentMessage = "No response";
+    if (agentResponse && agentResponse.messages && agentResponse.messages.length > 0) {
+      agentMessage = agentResponse.messages[0].message || agentResponse.messages[0].text || "No response";
+    }
 
     // Process AgentForce response through Gemini for facial expressions and animations
     const prompt = `
@@ -121,12 +150,12 @@ app.post("/chat", async (req, res) => {
     The different facial expressions are: smile, sad, angry, surprised, funnyFace, and default.
     The different animations are: Talking_0, Talking_1, Talking_2, Crying, Laughing, Rumba, Idle, Terrified, and Angry.
     
-    AgentForce response: ${agentResponse.message || "No response"}
+    AgentForce response: ${agentMessage}
     
     Respond with a valid JSON array of messages.
     `;
 
-    const result = await geminiModel.generateContent(prompt);
+    const result = await retryOperation(() => geminiModel.generateContent(prompt));
     const response = result.response;
     const text = response.text();
     console.log("Raw response:", text);
@@ -178,10 +207,10 @@ app.post("/chat", async (req, res) => {
           throw new Error('Invalid ElevenLabs API key format');
         }
 
-        await generateAudio(textInput, fileName);
+        await retryOperation(() => generateAudio(textInput, fileName));
         
         // generate lipsync
-        await lipSyncMessage(i);
+        await retryOperation(() => lipSyncMessage(i));
         message.audio = await audioFileToBase64(fileName);
         message.lipsync = await readJsonTranscript(`audios/message_${i}.json`);
       } catch (error) {
