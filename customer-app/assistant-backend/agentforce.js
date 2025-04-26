@@ -1,13 +1,16 @@
-const axios = require('axios');
-const { v4: uuidv4 } = require('uuid');
-require('dotenv').config();
+import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
+import dotenv from 'dotenv';
 
-class AgentForceClient {
+dotenv.config();
+
+export class AgentForceClient {
     constructor() {
         this.domainUrl = process.env.SALESFORCE_DOMAIN_URL;
         this.consumerKey = process.env.SALESFORCE_CONSUMER_KEY;
         this.consumerSecret = process.env.SALESFORCE_CONSUMER_SECRET;
         this.accessToken = null;
+        this.sequenceId = 0;
 
         // Validate required environment variables
         if (!this.domainUrl || !this.consumerKey || !this.consumerSecret) {
@@ -16,6 +19,7 @@ class AgentForceClient {
     }
 
     async getAccessToken() {
+        console.log("Getting access token");
         try {
             const response = await axios.post(
                 `https://${this.domainUrl}/services/oauth2/token`,
@@ -40,6 +44,7 @@ class AgentForceClient {
     }
 
     async createSession(agentId) {
+        console.log("Creating session for agent:", agentId);
         if (!this.accessToken) {
             await this.getAccessToken();
         }
@@ -73,6 +78,38 @@ class AgentForceClient {
             throw error;
         }
     }
-}
 
-module.exports = AgentForceClient; 
+    async sendMessage(sessionId, messageText) {
+        console.log("Sending message to session:", sessionId);
+        if (!this.accessToken) {
+            await this.getAccessToken();
+        }
+
+        this.sequenceId += 1;
+        
+        try {
+            const response = await axios.post(
+                `https://api.salesforce.com/einstein/ai-agent/v1/sessions/${sessionId}/messages`,
+                {
+                    message: {
+                        sequenceId: this.sequenceId,
+                        type: "Text",
+                        text: messageText
+                    }
+                },
+                {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.accessToken}`
+                    }
+                }
+            );
+
+            return response.data;
+        } catch (error) {
+            console.error('Error sending message:', error.response?.data || error.message);
+            throw error;
+        }
+    }
+} 

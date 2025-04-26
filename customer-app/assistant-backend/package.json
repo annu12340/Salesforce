@@ -1,14 +1,13 @@
 {
-  "name": "r3f-virtual-girlfriend-backend",
+  "name": "virtual-assistant-backend",
   "version": "1.0.0",
   "description": "Backend for the virtual assistant app",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js --ext js"
+    "dev": "nodemon test.js --ext js"
   },
-  "author": "Wawa SENSEI <contact@wawasensei.dev>",
   "dependencies": {
     "@google/genai": "^0.10.0",
     "@google/generative-ai": "^0.24.0",

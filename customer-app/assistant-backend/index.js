@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import express from "express";
 import { promises as fs } from "fs";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { AgentForceClient } from "./agentforce.js";
 import generateAudio from "./elevenlabs.js";
 dotenv.config();
 
@@ -23,6 +24,7 @@ const geminiModel = googleAI.getGenerativeModel({
 
 const elevenLabsApiKey = process.env.ELEVEN_LABS_API_KEY;
 const voiceID = "EXAVITQu4vr4xnSDxMaL";
+const agentForceClient = new AgentForceClient();
 
 const app = express();
 app.use(express.json());
@@ -78,6 +80,7 @@ app.post("/chat", async (req, res) => {
     });
     return;
   }
+
   if (!elevenLabsApiKey || !gemini_api_key) {
     res.send({
       messages: [
@@ -100,19 +103,29 @@ app.post("/chat", async (req, res) => {
     return;
   }
 
-  const prompt = `
-  You are a virtual assistant.
-  You will always reply with a JSON array of messages. With a maximum of 3 messages.
-  Each message has a text, facialExpression, and animation property.
-  The different facial expressions are: smile, sad, angry, surprised, funnyFace, and default.
-  The different animations are: Talking_0, Talking_1, Talking_2, Crying, Laughing, Rumba, Idle, Terrified, and Angry.
-  
-  User message: ${userMessage || "Hello"}
-  
-  Respond with a valid JSON array of messages.
-  `;
-
   try {
+    // Create or get existing session with AgentForce
+    const agentId = process.env.SALESFORCE_AGENT_ID;
+    const session = await agentForceClient.createSession(agentId);
+    console.log("AgentForce session created:", session);
+
+    // Send message to AgentForce
+    const agentResponse = await agentForceClient.sendMessage(session.sessionId, userMessage);
+    console.log("AgentForce response:", agentResponse);
+
+    // Process AgentForce response through Gemini for facial expressions and animations
+    const prompt = `
+    You are a virtual assistant.
+    You will always reply with a JSON array of messages. With a maximum of 3 messages.
+    Each message has a text, facialExpression, and animation property.
+    The different facial expressions are: smile, sad, angry, surprised, funnyFace, and default.
+    The different animations are: Talking_0, Talking_1, Talking_2, Crying, Laughing, Rumba, Idle, Terrified, and Angry.
+    
+    AgentForce response: ${agentResponse.message || "No response"}
+    
+    Respond with a valid JSON array of messages.
+    `;
+
     const result = await geminiModel.generateContent(prompt);
     const response = result.response;
     const text = response.text();
@@ -122,9 +135,9 @@ app.post("/chat", async (req, res) => {
     try {
       // Clean the text to ensure it's valid JSON
       const cleanedText = text.trim()
-        .replace(/^```json\s*/, '')  // Remove ```json if present
-        .replace(/^```\s*/, '')      // Remove ``` if present
-        .replace(/\s*```$/, '');     // Remove trailing ```
+        .replace(/^```json\s*/, '')
+        .replace(/^```\s*/, '')
+        .replace(/\s*```$/, '');
       
       messages = JSON.parse(cleanedText);
       console.log("Parsed messages:", messages);
@@ -149,6 +162,7 @@ app.post("/chat", async (req, res) => {
       ];
     }
 
+    // Process each message for audio and lip sync
     for (let i = 0; i < messages.length; i++) {
       const message = messages[i];
       console.log("Processing message:", message);
@@ -179,9 +193,9 @@ app.post("/chat", async (req, res) => {
 
     res.send({ messages });
   } catch (error) {
-    console.error("Error generating content:", error);
+    console.error("Error in chat endpoint:", error);
     res.status(500).send({
-      error: "Failed to generate response",
+      error: "Failed to process request",
       details: error.message
     });
   }
