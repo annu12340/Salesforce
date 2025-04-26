@@ -1,0 +1,15 @@
+{
+  "metadata": {
+    "soundFile": "/Users/annu/Desktop/Salesforce/customer-app/assistant-backend/audios/message_0.wav",
+    "duration": 0.99
+  },
+  "mouthCues": [
+    { "start": 0.00, "end": 0.19, "value": "X" },
+    { "start": 0.19, "end": 0.26, "value": "B" },
+    { "start": 0.26, "end": 0.40, "value": "D" },
+    { "start": 0.40, "end": 0.54, "value": "B" },
+    { "start": 0.54, "end": 0.61, "value": "C" },
+    { "start": 0.61, "end": 0.75, "value": "E" },
+    { "start": 0.75, "end": 0.99, "value": "X" }
+  ]
+}
