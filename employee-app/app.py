@@ -8,10 +8,10 @@ import config
 from services.case_service import CaseService
 from services.lead_service import LeadService
 from services.handoff_service import HandoffService
+from services.agent_service import AgentForceService
 
 # Import handlers
 from handlers.message_handlers import MessageHandlers
-from handlers.command_handlers import CommandHandlers
 from handlers.action_handlers import ActionHandlers
 
 # Configure logging
@@ -30,11 +30,16 @@ class SlackBot:
         self.case_service = CaseService()
         self.lead_service = LeadService()
         self.handoff_service = HandoffService()
+        self.agent_service = AgentForceService()
         
         # Register handlers
-        self.message_handlers = MessageHandlers(self.app, self.case_service, self.lead_service)
-        self.command_handlers = CommandHandlers(self.app)
-        self.action_handlers = ActionHandlers(self.app, self.handoff_service)
+        self.message_handlers = MessageHandlers(self.app, self.case_service, self.lead_service, self.agent_service)
+        self.action_handlers = ActionHandlers(self.app, self.handoff_service, self.case_service)
+        
+        # Register error handler directly
+        @self.app.error
+        async def handle_errors(error):
+            logger.error(f"Error: {error}")
 
     async def start(self):
         """Start the Slack bot with Socket Mode"""

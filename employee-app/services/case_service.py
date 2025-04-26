@@ -2,6 +2,7 @@ import logging
 import config
 from .case_parser import CaseParser
 from .channel_service import ChannelService
+from .agent_service import AgentForceService
 
 logger = logging.getLogger(__name__)
 
@@ -9,10 +10,35 @@ class CaseService:
     def __init__(self):
         self.case_parser = CaseParser()
         self.channel_service = ChannelService()
+        self.agent_service = AgentForceService()
         
     async def handle_case(self, text, user_id, timestamp, thread_ts, say, client=None):
         """Handle messages in the central_case channel"""
         try:
+            # Check message prefixes first
+            text_lower = text.lower().strip()
+            
+            # Handle messages that start with "agentforce"
+            if text_lower.startswith("agentforce"):
+                logger.info("Message starts with 'agentforce', forwarding to AgentForce API")
+                # Create a simple case data object for AgentForce
+                case_data = {
+                    'case_number': f'AF-{timestamp.replace(".", "")}',
+                    'summary': text[10:].strip(),  # Remove "agentforce" prefix
+                    'team': 'Support',  # Default team
+                    'confidence': 75,   # Default confidence
+                    'bot': 'agentforce'
+                }
+                return await self.process_agentforce_case(case_data, text, user_id, thread_ts, say, client)
+            
+            # Only process case messages that start with "New cases"
+            if not text_lower.startswith("new cases"):
+                logger.info("Message doesn't start with 'New cases', skipping case processing")
+                return await self.handle_generic_case(text, user_id, timestamp, thread_ts, say)
+                
+            # Message starts with "New cases", proceed with regular case handling
+            logger.info("Processing message starting with 'New cases'")
+            
             # Parse the case text
             case_data = self.case_parser.parse_case_text(text)
             
@@ -20,6 +46,11 @@ class CaseService:
                 # If parsing failed, use the original handler
                 logger.info("Text does not match case format, using default response")
                 return await self.handle_generic_case(text, user_id, timestamp, thread_ts, say)
+               
+            # Check if this is a request for AgentForce via bot field
+            if case_data.get('bot', '').lower() == 'agentforce':
+                logger.info("AgentForce bot specified in case data, forwarding to AgentForce API")
+                return await self.process_agentforce_case(case_data, text, user_id, thread_ts, say, client)
             
             # Check confidence threshold
             if case_data['confidence'] >= 90:
@@ -38,6 +69,7 @@ class CaseService:
             # Fallback to generic handler on error
             return await self.handle_generic_case(text, user_id, timestamp, thread_ts, say)
     
+
     async def auto_route_to_team(self, case_data, user_id, original_text, thread_ts, say, client):
         """Automatically route a high-confidence case to the appropriate team"""
         if not client:
@@ -133,6 +165,17 @@ class CaseService:
             }
         ]
         
+        # If this is a case that could use AgentForce, add that option
+        bot_name = case_data.get('bot', '')
+        if not bot_name:
+            # Add an AgentForce button if no bot was specified
+            blocks[2]["elements"].append({
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Process with AgentForce"},
+                "value": f"agentforce_{timestamp}",
+                "action_id": "process_agentforce"
+            })
+        
         # Remove duplicate buttons if team already exists in our standard options
         normalized_team = self.normalize_team_name(team_name).lower()
         standard_teams = ["support", "sales", "engineering"]
@@ -187,6 +230,12 @@ class CaseService:
                             "text": {"type": "plain_text", "text": "Hand-off to Engineering"},
                             "value": f"engineering_{timestamp}",
                             "action_id": "handoff_engineering"
+                        },
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "Process with AgentForce"},
+                            "value": f"agentforce_{timestamp}",
+                            "action_id": "process_agentforce"
                         }
                     ]
                 }
