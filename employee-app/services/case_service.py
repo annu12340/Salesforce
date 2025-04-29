@@ -1,7 +1,6 @@
 import logging
 import config
 from .case_parser import CaseParser
-from .channel_service import ChannelService
 from .agent_service import AgentForceService
 
 logger = logging.getLogger(__name__)
@@ -9,7 +8,6 @@ logger = logging.getLogger(__name__)
 class CaseService:
     def __init__(self):
         self.case_parser = CaseParser()
-        self.channel_service = ChannelService()
         self.agent_service = AgentForceService()
         
     async def handle_case(self, text, user_id, timestamp, thread_ts, say, client=None):
@@ -30,15 +28,7 @@ class CaseService:
                     'bot': 'agentforce'
                 }
                 return await self.process_agentforce_case(case_data, text, user_id, thread_ts, say, client)
-            
-            # Only process case messages that start with "New cases"
-            if not text_lower.startswith("new cases"):
-                logger.info("Message doesn't start with 'New cases', skipping case processing")
-                return await self.handle_generic_case(text, user_id, timestamp, thread_ts, say)
-                
-            # Message starts with "New cases", proceed with regular case handling
-            logger.info("Processing message starting with 'New cases'")
-            
+
             # Parse the case text
             case_data = self.case_parser.parse_case_text(text)
             
@@ -56,7 +46,7 @@ class CaseService:
             if case_data['confidence'] >= 90:
                 # High confidence, auto-route to team
                 logger.info(f"High confidence case ({case_data['confidence']}%), auto-routing to {case_data['team']}")
-                await self.auto_route_to_team(case_data, user_id, text, thread_ts, say, client)
+                await self.auto_route_to_team(case_data, user_id, thread_ts, say, client)
             else:
                 # Lower confidence, show handoff buttons
                 logger.info(f"Lower confidence case ({case_data['confidence']}%), showing handoff buttons")
@@ -70,40 +60,28 @@ class CaseService:
             return await self.handle_generic_case(text, user_id, timestamp, thread_ts, say)
     
 
-    async def auto_route_to_team(self, case_data, user_id, original_text, thread_ts, say, client):
+    async def auto_route_to_team(self, case_data, user_id, thread_ts, say, client):
         """Automatically route a high-confidence case to the appropriate team"""
-        if not client:
-            logger.error("Client is required for auto-routing but was not provided")
-            await say(text=f"Error: Unable to auto-route case. Client not available.", thread_ts=thread_ts)
-            return False
-        
-        team_name = case_data['team']
-        # Ensure the team channel exists
-        team_channel_id = await self.channel_service.ensure_team_channel_exists(client, team_name)
-        
-        if not team_channel_id:
-            # Channel creation failed, notify in thread
-            await say(
-                text=f"⚠️ Unable to auto-route to team '{team_name}'. Please use manual handoff.",
-                thread_ts=thread_ts
-            )
-            # Fall back to showing handoff options
-            await self.show_handoff_options(case_data, original_text, user_id, thread_ts, thread_ts, say)
-            return False
-        
+        team_channels = {
+            "support": config.SUPPORT_CHANNEL_ID,
+            "sales": config.SALES_CHANNEL_ID,
+            "engineering": config.ENGINEERING_CHANNEL_ID,
+            "iam": config.IAM_CHANNEL_ID
+        }
+        team=case_data['team']
         # Forward the case to the team channel
         await client.chat_postMessage(
-            channel=team_channel_id,
+            channel=team_channels[team],
             text=f"*Auto-routed Case #{case_data['case_number']} from <@{user_id}>*\n\n"
-                 f"*Team:* {team_name}\n"
+                 f"*Team:* {team}\n"
                  f"*Confidence:* {case_data['confidence']}%\n"
                  f"*Summary:* {case_data['summary']}\n\n"
-                 f"*Original Message:*\n{original_text}"
+            
         )
         
         # Confirm in the original thread
         await say(
-            text=f"✅ This case has been automatically routed to *{team_name}* with {case_data['confidence']}% confidence.",
+            text=f"✅ This case has been automatically routed to *{team}* with {case_data['confidence']}% confidence.",
             thread_ts=thread_ts
         )
         
@@ -164,30 +142,7 @@ class CaseService:
                 ]
             }
         ]
-        
-        # If this is a case that could use AgentForce, add that option
-        bot_name = case_data.get('bot', '')
-        if not bot_name:
-            # Add an AgentForce button if no bot was specified
-            blocks[2]["elements"].append({
-                "type": "button",
-                "text": {"type": "plain_text", "text": "Process with AgentForce"},
-                "value": f"agentforce_{timestamp}",
-                "action_id": "process_agentforce"
-            })
-        
-        # Remove duplicate buttons if team already exists in our standard options
-        normalized_team = self.normalize_team_name(team_name).lower()
-        standard_teams = ["support", "sales", "engineering"]
-        
-        if normalized_team in standard_teams:
-            # Remove the standard button that matches the suggested team
-            blocks[2]["elements"] = [
-                button for button in blocks[2]["elements"] 
-                if not (button.get("action_id") == f"handoff_{normalized_team}" and 
-                        button != blocks[2]["elements"][0])  # Keep the primary button
-            ]
-        
+
         # Send response as a thread to the original message
         logger.info(f"Sending case blocks with suggested team {team_name} in thread {thread_ts}")
         await say(blocks=blocks, thread_ts=thread_ts)

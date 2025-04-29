@@ -1,13 +1,11 @@
 import logging
 import config
-from .channel_service import ChannelService
+
 
 logger = logging.getLogger(__name__)
 
 class HandoffService:
-    def __init__(self):
-        self.channel_service = ChannelService()
-        
+
     async def process_handoff(self, action_id, user_id, timestamp, body, client):
         """Process the hand-off action from button click"""
         try:
@@ -34,18 +32,7 @@ class HandoffService:
                     button_text = body["actions"][0].get("text", {}).get("text", "")
                     if button_text.startswith("Hand-off to "):
                         team_name = button_text.replace("Hand-off to ", "")
-                        
-                        # Ensure channel exists for this team
-                        target_channel = await self.channel_service.ensure_team_channel_exists(client, team_name)
-                        
-                        if not target_channel:
-                            # Failed to get/create channel
-                            await client.chat_postMessage(
-                                channel=config.CENTRAL_CASE_CHANNEL_ID,
-                                thread_ts=timestamp,
-                                text=f"⚠️ Failed to hand off to team '{team_name}'. The channel could not be created or found."
-                            )
-                            return
+  
             
             if not target_channel or not team_name:
                 logger.error(f"No target channel found for action {action_id}")

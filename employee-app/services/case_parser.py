@@ -34,7 +34,7 @@ class CaseParser:
             # Extract team
             team_match = re.search(r'Team:\s*(.*?)(?:\n|$)', text)
             if team_match:
-                case_data['team'] = team_match.group(1).strip()
+                case_data['team'] = team_match.group(1).strip().lower()
             
             # Extract confidence
             confidence_match = re.search(r'Confidence:\s*(\d+)%', text)

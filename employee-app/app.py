@@ -6,7 +6,6 @@ import config
 
 # Import services
 from services.case_service import CaseService
-from services.lead_service import LeadService
 from services.handoff_service import HandoffService
 from services.agent_service import AgentForceService
 
@@ -23,17 +22,15 @@ class SlackBot:
     def __init__(self):
         # Initialize the Slack app
         self.app = AsyncApp(token=config.SLACK_BOT_TOKEN)
-        logger.info(f"Initializing bot with Central Case channel: {config.CENTRAL_CASE_CHANNEL_ID}")
-        logger.info(f"New Leads channel: {config.NEW_LEADS_CHANNEL_ID}")
+        logger.info(f"Initializing bot ")
         
         # Initialize services
         self.case_service = CaseService()
-        self.lead_service = LeadService()
         self.handoff_service = HandoffService()
         self.agent_service = AgentForceService()
         
         # Register handlers
-        self.message_handlers = MessageHandlers(self.app, self.case_service, self.lead_service, self.agent_service)
+        self.message_handlers = MessageHandlers(self.app, self.case_service, self.agent_service)
         self.action_handlers = ActionHandlers(self.app, self.handoff_service, self.case_service)
         
         # Register error handler directly
