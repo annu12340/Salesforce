@@ -2,6 +2,7 @@ import logging
 import config
 from .case_parser import CaseParser
 from .agent_service import AgentForceService
+from .team_service import TeamService
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +10,7 @@ class CaseService:
     def __init__(self):
         self.case_parser = CaseParser()
         self.agent_service = AgentForceService()
+        self.team_service = TeamService()
         
     async def handle_case(self, text, user_id, timestamp, thread_ts, say, client=None):
         """Handle messages in the central_case channel"""
@@ -46,7 +48,7 @@ class CaseService:
             if case_data['confidence'] >= 90:
                 # High confidence, auto-route to team
                 logger.info(f"High confidence case ({case_data['confidence']}%), auto-routing to {case_data['team']}")
-                await self.auto_route_to_team(case_data, user_id, thread_ts, say, client)
+                await self.team_service.route_to_team(case_data, user_id, thread_ts, say, client)
             else:
                 # Lower confidence, show handoff buttons
                 logger.info(f"Lower confidence case ({case_data['confidence']}%), showing handoff buttons")
@@ -60,33 +62,6 @@ class CaseService:
             return await self.handle_generic_case(text, user_id, timestamp, thread_ts, say)
     
 
-    async def auto_route_to_team(self, case_data, user_id, thread_ts, say, client):
-        """Automatically route a high-confidence case to the appropriate team"""
-        team_channels = {
-            "support": config.SUPPORT_CHANNEL_ID,
-            "sales": config.SALES_CHANNEL_ID,
-            "engineering": config.ENGINEERING_CHANNEL_ID,
-            "iam": config.IAM_CHANNEL_ID
-        }
-        team=case_data['team']
-        # Forward the case to the team channel
-        await client.chat_postMessage(
-            channel=team_channels[team],
-            text=f"*Auto-routed Case #{case_data['case_number']} from <@{user_id}>*\n\n"
-                 f"*Team:* {team}\n"
-                 f"*Confidence:* {case_data['confidence']}%\n"
-                 f"*Summary:* {case_data['summary']}\n\n"
-            
-        )
-        
-        # Confirm in the original thread
-        await say(
-            text=f"✅ This case has been automatically routed to *{team}* with {case_data['confidence']}% confidence.",
-            thread_ts=thread_ts
-        )
-        
-        return True
-        
     async def show_handoff_options(self, case_data, text, user_id, timestamp, thread_ts, say):
         """Show handoff buttons for a case with team recommendation"""
         team_name = case_data['team']
@@ -118,8 +93,8 @@ class CaseService:
                             "text": f"Hand-off to {team_name}"
                         },
                         "style": "primary",  # Highlight the suggested team
-                        "value": f"{self.normalize_team_name(team_name)}_{timestamp}",
-                        "action_id": f"handoff_{self.normalize_team_name(team_name)}"
+                        "value": f"{self.team_service.normalize_team_name(team_name)}_{timestamp}",
+                        "action_id": f"handoff_{self.team_service.normalize_team_name(team_name)}"
                     },
                     {
                         "type": "button",
@@ -148,10 +123,6 @@ class CaseService:
         await say(blocks=blocks, thread_ts=thread_ts)
         logger.info("Case response sent successfully")
     
-    def normalize_team_name(self, team_name):
-        """Convert team name to a format suitable for action IDs"""
-        return team_name.lower().replace(' ', '_')
-        
     async def handle_generic_case(self, text, user_id, timestamp, thread_ts, say):
         """Handle generic (non-structured) case messages"""
         try:
