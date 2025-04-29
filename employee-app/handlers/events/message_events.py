@@ -45,7 +45,7 @@ class MessageEvents(BaseHandler):
                 logger.info(f"Processing message in team channel: {text[:20]}...")
                 # Add runbook button for team channels
                 await say(
-                    text="Would you like to fetch and execute a runbook for this case?",
+                    text="Would you like to fetch  a runbook for this case?",
                     thread_ts=thread_ts,
                     blocks=[
                         {
@@ -54,9 +54,9 @@ class MessageEvents(BaseHandler):
                             "elements": [
                                 {
                                     "type": "button",
-                                    "text": {"type": "plain_text", "text": "Fetch and execute runbook"},
+                                    "text": {"type": "plain_text", "text": "Fetch runbook"},
                                     "value": f"runbook_{timestamp}",
-                                    "action_id": "execute_runbook"
+                                    "action_id": "fetch_runbook"
                                 }
                             ]
                         }
